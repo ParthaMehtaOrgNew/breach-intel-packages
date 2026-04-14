@@ -1,0 +1,78 @@
+{
+  "name": "breach-intel",
+  "version": "0.2.0",
+  "description": "Breach Intel policy agent sidecar — automatically logs every tool call, LLM response, and API request to the breach intelligence platform. Supports passive auto-watch mode (no explicit breach_emit calls needed).",
+  "author": "Partha Mehta",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "policyAgentUrl":  { "type": "string", "description": "URL of the policy agent (default: http://localhost:8080)" },
+      "agentId":         { "type": "string", "description": "Registered agent ID from /agents/register" },
+      "apiToken":        { "type": "string", "description": "Bearer token if auth is enabled on the policy agent" },
+      "vertical":        { "type": "string", "description": "Compliance vertical: fintech | healthcare | pharma (default: fintech)" },
+      "tenantId":        { "type": "string", "description": "Default tenant/customer ID to attach to events" },
+      "silent":          { "type": "boolean", "description": "Swallow errors silently — never block the agent (default: true)" },
+      "autoWatch":       { "type": "boolean", "description": "Passively tail the session transcript and auto-emit events without the agent calling breach_emit (default: false)" },
+      "transcriptPath":  { "type": "string", "description": "Path to OpenClaw session .jsonl transcript. Auto-read from OPENCLAW_TRANSCRIPT_PATH env var if not set." }
+    }
+  },
+  "uiHints": {
+    "apiToken":       { "sensitive": true },
+    "autoWatch":      { "label": "Auto-Watch (passive mode)", "placeholder": "true" },
+    "transcriptPath": { "label": "Session Transcript Path", "placeholder": "/path/to/session.jsonl" }
+  },
+  "tools": [
+    {
+      "name": "breach_emit",
+      "description": "Emit an agent event to the Breach Intel Policy Agent for breach classification and logging. Use this after every significant action: LLM responses, tool calls, outbound API requests. Returns breach classification result.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "event_type": {
+            "type": "string",
+            "enum": ["llm_response", "tool_call", "api_request", "file_read", "file_write", "action"],
+            "description": "Type of event being logged"
+          },
+          "payload": {
+            "type": "object",
+            "description": "The event content. For llm_response: {text}. For tool_call: {tool, args}. For api_request: {method, url, body}."
+          },
+          "tenant_id": {
+            "type": "string",
+            "description": "Optional: which customer/tenant this event belongs to"
+          }
+        },
+        "required": ["event_type", "payload"]
+      }
+    },
+    {
+      "name": "breach_query",
+      "description": "Query the breach log. Use to check recent breaches for this agent or get a summary.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": ["list", "summary", "get"],
+            "description": "list: recent breaches | summary: counts by type/severity | get: single breach by ID"
+          },
+          "breach_id": {
+            "type": "string",
+            "description": "Required when action=get"
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW"],
+            "description": "Filter by severity (list only)"
+          },
+          "limit": {
+            "type": "integer",
+            "default": 10
+          }
+        },
+        "required": ["action"]
+      }
+    }
+  ]
+}

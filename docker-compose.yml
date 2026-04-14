@@ -1,0 +1,41 @@
+version: "3.9"
+
+services:
+  policy_agent:
+    build: .
+    image: breach-intel-policy-agent:latest
+    ports:
+      - "8080:8080"
+    environment:
+      - POLICY_AGENT_INSTANCE_ID=primary
+      - POLICY_AGENT_VERTICAL=fintech
+      - DATABASE_URL=postgresql://breach:breach@db:5432/breach_intel
+      - SPAWN_THRESHOLD_EPM=500
+      - SPAWN_MAX_INSTANCES=10
+      - POLICY_AGENT_API_TOKEN=${POLICY_AGENT_API_TOKEN:-}
+      - RATE_LIMIT_ENABLED=${RATE_LIMIT_ENABLED:-true}
+      - RATE_LIMIT_EPM=${RATE_LIMIT_EPM:-300}
+    volumes:
+      - ./breach_logs:/app/breach_logs
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: breach
+      POSTGRES_PASSWORD: breach
+      POSTGRES_DB: breach_intel
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U breach -d breach_intel"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  pg_data:
